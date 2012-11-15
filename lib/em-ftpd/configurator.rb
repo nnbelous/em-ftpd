@@ -14,6 +14,11 @@ module EM::FTPD
 
       @driver    = nil
       @driver_args = []
+
+      @enforce_tls        = false
+      @enforce_data_tls   = false
+      @private_key_file = nil
+      @cert_chain_file  = nil
     end
 
     def user(val = nil)
@@ -100,6 +105,38 @@ module EM::FTPD
         @port = val.to_i
       else
         @port
+      end
+    end
+
+    def enforce_tls(val = nil)
+      if !val.nil?
+        @enforce_tls = !!val
+      else
+        @enforce_tls
+      end
+    end
+
+    def enforce_data_tls(val = nil)
+      if !val.nil?
+        @enforce_data_tls = !!val
+      else
+        @enforce_data_tls
+      end
+    end
+
+    def private_key_file(val = nil)
+      if val
+        @private_key_file = val
+      else
+        @private_key_file
+      end
+    end
+
+    def cert_chain_file(val = nil)
+      if val
+        @cert_chain_file = val
+      else
+        @cert_chain_file
       end
     end
 

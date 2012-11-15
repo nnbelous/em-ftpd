@@ -6,10 +6,9 @@ module EM::FTPD
   class PassiveSocket < EventMachine::Connection
     include EM::Deferrable
     include BaseSocket
-    
 
-    def self.start(host, control_server)
-      EventMachine.start_server(host, 0, self) do |conn|
+    def self.start(host, control_server, ssl_config)
+      EventMachine.start_server(host, 0, self, ssl_config) do |conn|
         control_server.datasocket = conn
       end
     end
@@ -25,6 +24,5 @@ module EM::FTPD
       Socket.unpack_sockaddr_in( EM.get_sockname( sig ) ).first
     end
 
-    
   end
 end

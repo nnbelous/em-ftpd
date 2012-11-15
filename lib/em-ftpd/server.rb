@@ -13,22 +13,22 @@ module EM::FTPD
     include Authentication
     include Directories
     include Files
+    include Encryption
 
     COMMANDS = %w[quit type user retr stor eprt port cdup cwd dele rmd pwd
                   list size syst mkd pass xcup xpwd xcwd xrmd rest allo nlst
-                  pasv epsv help noop mode rnfr rnto stru feat]
+                  pasv epsv help noop mode rnfr rnto stru feat auth pbsz prot]
 
     attr_reader :root, :name_prefix
     attr_accessor :datasocket
 
-    def initialize(driver, *args)
-      if driver.is_a?(Class) && args.empty?
-        @driver = driver.new
-      elsif driver.is_a?(Class)
-        @driver = driver.new *args
+    def initialize(driver, driver_args = [], config = Configurator.new)
+      if driver.is_a?(Class)
+        @driver = driver.new *driver_args
       else
         @driver = driver
       end
+      @config = config
       @datasocket = nil
       @listen_sig = nil
       super()
@@ -37,7 +37,6 @@ module EM::FTPD
     def post_init
       @mode   = :binary
       @name_prefix = "/"
-
       send_response "220 FTP server (em-ftpd) ready"
     end
 
@@ -119,7 +118,7 @@ module EM::FTPD
 
     def cmd_feat(param)
       str = "211- Supported features:#{LBRK}"
-      features = %w{ EPRT EPSV SIZE }
+      features = ['EPRT', 'EPSV', 'SIZE', 'AUTH', 'PBSZ', 'PROT']
       features.each do |feat|
         str << " #{feat}" << LBRK
       end
@@ -282,10 +281,22 @@ module EM::FTPD
     # ready to use, so it may take a few RTTs after the command is received at
     # the server before the data socket is ready.
     #
-    def send_outofband_data(data)
+    def send_outofband_data(data, interval = 0.1)
       wait_for_datasocket do |datasocket|
         if datasocket.nil?
           send_response "425 Error establishing connection"
+        elsif !@datasocket.ready_for_writing?
+          if interval > 25
+            send_response "425 Error while establishing connection. SSL handshake failure?"
+            close_datasocket
+          else
+            if EM.reactor_running?
+              EventMachine.add_timer(interval) { send_outofband_data(data, interval * 2) }
+            else
+              sleep interval
+              send_outofband_data(data, interval * 2)
+            end
+          end
         else
           if data.is_a?(Array)
             data = data.join(LBRK) << LBRK
@@ -374,7 +385,7 @@ module EM::FTPD
 
       # open a listening socket on the appropriate host
       # and on a random port
-      @listen_sig = PassiveSocket.start(host, self)
+      @listen_sig = PassiveSocket.start(host, self, ssl_config_for_data_channel)
       port = PassiveSocket.get_port(@listen_sig)
 
       [host, port]

@@ -841,3 +841,117 @@ describe EM::FTPD::Server, "TYPE" do
   end
 
 end
+
+describe EM::FTPD::Server, "FEAT" do
+  before(:each) do
+    @c = EM::FTPD::Server.new(nil, TestDriver.new)
+  end
+
+  it "should respond with list of supported commands when called" do
+    @c.reset_sent!
+    @c.receive_line("FEAT")
+    @c.sent_data.should match(/211.+/)
+    @c.sent_data.should match(/AUTH TLS/)
+    @c.sent_data.should match(/PBSZ/)
+    @c.sent_data.should match(/PROT/)
+  end
+end
+
+describe EM::FTPD::Server, "AUTH" do
+  before(:each) do
+    @c = EM::FTPD::Server.new(nil, TestDriver.new)
+  end
+
+  it "should respond with 234 when called with 'TLS'" do
+    @c.reset_sent!
+    @c.receive_line("AUTH TLS")
+    @c.sent_data.should match(/234.+/)
+  end
+
+  it "should respond with 504 when called with un unrecognised param or called with no param" do
+    @c.reset_sent!
+    @c.receive_line("AUTH HHH")
+    @c.sent_data.should match(/504.+/)
+  end
+
+  it "should respond with 553 when called with no param" do
+    @c.reset_sent!
+    @c.receive_line("AUTH")
+    @c.sent_data.should match(/553.+/)
+  end
+end
+
+describe EM::FTPD::Server, "PBSZ" do
+  before(:each) do
+    @c = EM::FTPD::Server.new(nil, TestDriver.new)
+  end
+
+  it "should respond with 200 when called with '0'" do
+    @c.reset_sent!
+    @c.stub!(:command_channel_secure?).and_return(true)
+    @c.receive_line("PBSZ 0")
+    @c.sent_data.should match(/200.+/)
+  end
+
+  it "should respond with 501 when called with un unrecognised param or called with no param" do
+    @c.reset_sent!
+    @c.stub!(:command_channel_secure?).and_return(true)
+    @c.receive_line("PBSZ 2147483650")
+    @c.sent_data.should match(/501.+/)
+  end
+
+  it "should respond with 553 when called with no param" do
+    @c.reset_sent!
+    @c.stub!(:command_channel_secure?).and_return(true)
+    @c.receive_line("PBSZ")
+    @c.sent_data.should match(/553.+/)
+  end
+end
+
+describe EM::FTPD::Server, "PROT" do
+  before(:each) do
+    @c = EM::FTPD::Server.new(nil, TestDriver.new)
+  end
+
+  it "should respond with 200 when called with 'P'" do
+    @c.reset_sent!
+    @c.stub!(:command_channel_secure?).and_return(true)
+    @c.receive_line("PBSZ 0")
+    @c.receive_line("PROT P")
+    @c.sent_data.should match(/200.+/)
+  end
+
+  it "should respond with 503 if no previous PBSZ command" do
+    @c.reset_sent!
+    @c.stub!(:command_channel_secure?).and_return(true)
+    @c.receive_line("PROT P")
+    @c.sent_data.should match(/503.+/)
+  end
+
+  it "should respond with 536 when called with 'C', 'S' or 'E'" do
+    @c.reset_sent!
+    @c.stub!(:command_channel_secure?).and_return(true)
+    @c.receive_line("PBSZ 0")
+    @c.receive_line("PROT C")
+    @c.sent_data.should match(/536.+/)
+    @c.receive_line("PROT S")
+    @c.sent_data.should match(/536.+/)
+    @c.receive_line("PROT E")
+    @c.sent_data.should match(/536.+/)
+  end
+
+  it "should respond with 504 when called with un unrecognised param or called with no param" do
+    @c.reset_sent!
+    @c.stub!(:command_channel_secure?).and_return(true)
+    @c.receive_line("PBSZ 0")
+    @c.receive_line("PROT D")
+    @c.sent_data.should match(/504.+/)
+  end
+
+  it "should respond with 553 when called with no param" do
+    @c.reset_sent!
+    @c.stub!(:command_channel_secure?).and_return(true)
+    @c.receive_line("PROT")
+    @c.sent_data.should match(/553.+/)
+  end
+end
